@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 import requests
+import os  # necessário para pegar a variável de ambiente PORT
 
 app = Flask(__name__)
 
@@ -63,3 +64,8 @@ def cotar_frete():
 @app.route('/')
 def home():
     return 'API de Cotação Correios Online'
+
+# ADICIONE ESTE BLOCO NO FINAL
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
