@@ -43,7 +43,7 @@ def cotar_frete():
         }
 
         url = "https://ws.correios.com.br/calculador/CalcPrecoPrazo.aspx"
-        response = requests.get(url, params=params)
+        response = requests.get(url, params=params, timeout=60)
 
         if response.status_code == 200:
             from xml.etree import ElementTree as ET
