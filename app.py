@@ -43,9 +43,11 @@ def cotar_frete():
         }
 
         url = "https://ws.correios.com.br/calculador/CalcPrecoPrazo.aspx"
-        response = requests.get(url, params=params, timeout=60)
+        
+        try:
+            response = requests.get(url, params=params, timeout=60)
+            response.raise_for_status()
 
-        if response.status_code == 200:
             from xml.etree import ElementTree as ET
             root = ET.fromstring(response.text)
             servico = root.find(".//cServico")
@@ -56,8 +58,12 @@ def cotar_frete():
                 "valor_frete": float(valor),
                 "prazo_dias": int(prazo)
             }
-        else:
-            resultados[nome] = {"erro": "Falha ao consultar"}
+        
+        except requests.RequestException as e:
+            resultados[nome] = {
+                "erro": "Falha ao consultar Correios",
+                "detalhe": str(e)
+            }
 
     return jsonify(resultados)
 
@@ -65,7 +71,7 @@ def cotar_frete():
 def home():
     return 'API de Cotação Correios Online'
 
-# ADICIONE ESTE BLOCO NO FINAL
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
+
