@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 import requests
 import os  # necessário para pegar a variável de ambiente PORT
+from xml.etree import ElementTree as ET
 
 app = Flask(__name__)
 
@@ -48,9 +49,17 @@ def cotar_frete():
             response = requests.get(url, params=params, timeout=60)
             response.raise_for_status()
 
-            from xml.etree import ElementTree as ET
             root = ET.fromstring(response.text)
             servico = root.find(".//cServico")
+            erro = servico.find("Erro").text
+
+            if erro != '0':
+                msg_erro = servico.find("MsgErro").text if servico.find("MsgErro") is not None else "Erro desconhecido"
+                resultados[nome] = {
+                    "erro": f"Erro {erro} - {msg_erro}"
+                }
+                continue
+
             valor = servico.find("Valor").text.replace(",", ".")
             prazo = servico.find("PrazoEntrega").text
 
@@ -58,8 +67,8 @@ def cotar_frete():
                 "valor_frete": float(valor),
                 "prazo_dias": int(prazo)
             }
-        
-        except requests.RequestException as e:
+
+        except Exception as e:
             resultados[nome] = {
                 "erro": "Falha ao consultar Correios",
                 "detalhe": str(e)
@@ -74,4 +83,3 @@ def home():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
-
