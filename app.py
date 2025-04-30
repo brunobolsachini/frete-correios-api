@@ -1,65 +1,59 @@
 from flask import Flask, request, jsonify
 import requests
-import os  # necessário para pegar a variável de ambiente PORT
-from xml.etree import ElementTree as ET
+import os
+import traceback
 
 app = Flask(__name__)
 
 @app.route('/cotacao', methods=['POST'])
 def cotar_frete():
-    data = request.json
+    try:
+        data = request.json
+        print("Dados recebidos:", data)
 
-    cep_origem = data.get("cep_origem", "").replace("-", "")
-    cep_destino = data.get("cep_destino", "").replace("-", "")
-    peso = data.get("peso", "1")
-    comprimento = data.get("comprimento", "20")
-    altura = data.get("altura", "10")
-    largura = data.get("largura", "15")
-    valor_declarado = data.get("valor_declarado", "0")
+        cep_origem = data.get("cep_origem", "").replace("-", "")
+        cep_destino = data.get("cep_destino", "").replace("-", "")
+        peso = data.get("peso", "1")
+        comprimento = data.get("comprimento", "20")
+        altura = data.get("altura", "10")
+        largura = data.get("largura", "15")
+        valor_declarado = data.get("valor_declarado", "0")
 
-    cod_servicos = {
-        "PAC": "41106",
-        "SEDEX": "40010"
-    }
-
-    resultados = {}
-
-    for nome, codigo in cod_servicos.items():
-        params = {
-            "nCdEmpresa": "",
-            "sDsSenha": "",
-            "nCdServico": codigo,
-            "sCepOrigem": cep_origem,
-            "sCepDestino": cep_destino,
-            "nVlPeso": peso,
-            "nCdFormato": "1",
-            "nVlComprimento": comprimento,
-            "nVlAltura": altura,
-            "nVlLargura": largura,
-            "nVlDiametro": "0",
-            "sCdMaoPropria": "N",
-            "nVlValorDeclarado": valor_declarado,
-            "sCdAvisoRecebimento": "N",
-            "StrRetorno": "xml"
+        cod_servicos = {
+            "PAC": "41106",
+            "SEDEX": "40010"
         }
 
-        url = "https://ws.correios.com.br/calculador/CalcPrecoPrazo.aspx"
-        
-        try:
+        resultados = {}
+
+        for nome, codigo in cod_servicos.items():
+            params = {
+                "nCdEmpresa": "",
+                "sDsSenha": "",
+                "nCdServico": codigo,
+                "sCepOrigem": cep_origem,
+                "sCepDestino": cep_destino,
+                "nVlPeso": peso,
+                "nCdFormato": "1",
+                "nVlComprimento": comprimento,
+                "nVlAltura": altura,
+                "nVlLargura": largura,
+                "nVlDiametro": "0",
+                "sCdMaoPropria": "N",
+                "nVlValorDeclarado": valor_declarado,
+                "sCdAvisoRecebimento": "N",
+                "StrRetorno": "xml"
+            }
+
+            url = "https://ws.correios.com.br/calculador/CalcPrecoPrazo.aspx"
+            print(f"Consultando Correios para: {nome}")
+
             response = requests.get(url, params=params, timeout=60)
             response.raise_for_status()
 
+            from xml.etree import ElementTree as ET
             root = ET.fromstring(response.text)
             servico = root.find(".//cServico")
-            erro = servico.find("Erro").text
-
-            if erro != '0':
-                msg_erro = servico.find("MsgErro").text if servico.find("MsgErro") is not None else "Erro desconhecido"
-                resultados[nome] = {
-                    "erro": f"Erro {erro} - {msg_erro}"
-                }
-                continue
-
             valor = servico.find("Valor").text.replace(",", ".")
             prazo = servico.find("PrazoEntrega").text
 
@@ -68,13 +62,12 @@ def cotar_frete():
                 "prazo_dias": int(prazo)
             }
 
-        except Exception as e:
-            resultados[nome] = {
-                "erro": "Falha ao consultar Correios",
-                "detalhe": str(e)
-            }
-
-    return jsonify(resultados)
+        return jsonify(resultados)
+    
+    except Exception as e:
+        print("Erro interno na API:")
+        traceback.print_exc()
+        return jsonify({"erro": "Erro interno na API", "detalhe": str(e)}), 500
 
 @app.route('/')
 def home():
